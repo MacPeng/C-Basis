@@ -1,163 +1,171 @@
-//
+
 //  main.cpp
-//  pa8
+//  pa99
 //
-//  Created by Mike Peng on 3/30/19.
+//  Created by Mike Peng on 5/23/19.
 //  Copyright © 2019 Yiming Peng. All rights reserved.
-//
+
 
 #include <iostream>
 #include <vector>
-#include <string>
 #include <fstream>
+#include <algorithm>
 using namespace std;
-
-class MenuItem
-{
+class Term {
 private:
-    string name;
-    double price;
+    string str;
+    unsigned long long weight;
 public:
-    // Constructor - initialize the object from a given name and price
-    MenuItem(string itemName, double itemPrice);
-    
-    // Constructor - initialize the object given a single text line
-    //  using the syntax "itemname:price"
-    MenuItem(string specification);
-    void Invalidate(string param,size_t position);
-    
-    // Print the name and price of this menu item
-    void Display() const;
-    class InvalidItem
-    {
-    private:
-        string message;
-    public:
-        InvalidItem(string message) { this->message = message; }
-        string GetMessage() const { return message; }
-        
-    };
+    Term(string s, unsigned long long w) :str(s), weight(w) {}
+    bool GreaterWeight(Term rightSide);
+    bool operator<(Term rightSide);
+    friend ostream& operator<<(ostream& os, Term rightSide);
+    friend vector<Term> List(vector<Term> & records, string prefix);
 };
-void ReadDataFromFile(vector<MenuItem>& Item, string fileName);
-void DisplayData(const vector<MenuItem>& Item);
+vector<Term> ReadFile(string fileName);
+bool Compare(Term leftSide, Term rightSide);
+void Sort(vector<Term>& term);
+bool CompareWeight(Term leftSide, Term rightSide);
+vector<Term> CreateVectorFromFile();
+vector<Term> CombineVectors(vector<Term> term1, vector<Term> term2);
+void SortByWeight(vector<Term> term);
 
+int main() {
+    vector<Term> wiktionary = ReadFile("wiktionary.txt");
+    vector<Term> cities = ReadFile("cities.txt");
 
-int main()
-{
-    vector<MenuItem> Item;
-    string fileName;
-    try
-    {
-        
-        cout << "Enter a filename: ";
-        getline(cin, fileName);
-        ReadDataFromFile(Item, fileName);
-        DisplayData(Item);
+    string prefix;
+    int num;
+    cout << " Please text to autocomplete: ";
+    getline(cin, prefix);
+    cout << "Max number of result: ";
+    cin >> num;
+    vector<Term> term1;
+    term1 = List(wiktionary, prefix);
+    vector<Term> term2;
+    term2 = List(cities, prefix);
+    vector<Term> result= CombineVectors(term1,term2);
+    SortByWeight(result);
+    for (int i = 0; i < num; i++) {
+        cout << result[i] << endl;
     }
-    catch (string& message)
-    {
-        cout << "** Error: " << message << endl;
-    }
-    catch (MenuItem::InvalidItem& exception)
-    {
-        cout << "** Data Error: " << exception.GetMessage()<<endl;
-        
-    }
-    
-  
+
+    return 0;
 }
 
+vector<Term> ReadFile(string fileName) {
+    ifstream inputFile;
+    inputFile.open(fileName);
 
+    vector<Term> term;
+    if (inputFile.fail()) {
+        cout << "The file failed to open/" << endl;
+    }
 
-MenuItem::MenuItem(string itemName, double itemPrice)
-{
-   
-    
-    if (itemName == "" )
-    {
-        throw InvalidItem("error,there is no name");
-    }
-    else if (itemPrice <=0)
-    {
-        throw InvalidItem("error,this is not a real price");
-    }
-    else
-    {
-        this->name=itemName;
-        this->price=itemPrice;
-    }
-}
-
-
-MenuItem:: MenuItem(string specification)
-{
-    string colon=":";
-    size_t found=specification.find(colon);
-    if(found!=string::npos)
-    {
-        this->Invalidate(specification,found);
-    }else{
-        throw InvalidItem("error,colon is missing");
-    }
-   
-    
-        
-}
-void MenuItem::Invalidate(string param,size_t position)
-{
-    string itemName=param.substr(0,position);
-    string value=param.substr(position+1);
-    if(itemName=="")
-    {
-        throw InvalidItem("error, you should enter an item name..");
-    }else{
-        this->name=itemName;
-    }
-    try{
-        double numValue=stod(value);
-        if(numValue<=0)
-        {
-            
-                throw InvalidItem("error,this is not a real price");
-            
+    else {
+        long long size;
+        inputFile >> size;
+        for (long long i = 0; i < size; i++) {
+            unsigned long long w;
+            string s;
+            inputFile >> w;
+            inputFile.ignore(1);
+            getline(inputFile, s);
+            Term tempTerm(s, w);
+            term.push_back(tempTerm);
         }
-        this->price=numValue;
-    }catch(exception& e){
-        throw InvalidItem("error, the given value is not a double value");
+
+    }
+    inputFile.close();
+    return term;
+}
+
+vector<Term> CombineVectors(vector<Term> term1, vector<Term> term2) {
+    vector<Term> result = term1;
+    for (long long i = 0; i < term2.size(); i++) {
+        result.push_back(term2[i]);
+    }
+    return result;
+}
+
+bool Term::GreaterWeight(Term rightSide) {
+    if (rightSide.weight < this->weight) {
+        return true;
+    }
+    else if (rightSide.weight > this->weight) {
+        return false;
+    }
+    else{
+        return false;
     }
 }
-   
 
-
-
-void MenuItem::Display() const
-{
-    cout << "the item " << this->name << " costs " << this->price <<endl;
+bool CompareWeight(Term leftSide, Term rightSide) {
+    return (leftSide.GreaterWeight(rightSide));
 }
 
-void ReadDataFromFile(vector<MenuItem>& Item, string fileName)
-{
-    string line;
-    ifstream file;
-    int lineNumber = 1;
-    file.open(fileName.c_str());
-    if(file.fail()) throw string("Could not open filename "+fileName);
-    while(getline(file,line))
-    {
-        try{
-            MenuItem b(line);
-            Item.push_back(b);
-            lineNumber++;
-        }catch(MenuItem::InvalidItem& e){
-            throw string("error, there is an error in line "+to_string(lineNumber)+"\n"+e.GetMessage());
+ostream& operator<<(ostream& os, Term rightSide) {
+    os << rightSide.weight << " " << rightSide.str;
+    return os;
+}
+
+vector<Term> List(vector<Term> & records, string prefix) {
+    vector<Term> term;
+for (long long i = 0; i < records.size(); i++) {
+        if (prefix.size() > records[i].str.size()) {
+            break;
+        }
+        else {
+            int result = 0;
+            for (int n = 0; n < prefix.size(); n++) {
+                if (tolower(prefix[n]) == tolower(records[i].str[n])) {
+                    result++;
+                }
+                else {
+                    break;
+                }
+            }
+            if (result == prefix.size()) {
+                term.push_back(records[i]);
+            }
         }
     }
-    file.close();
-   
+
+    return term;
 }
-void DisplayData(const vector<MenuItem>& Item){
-    for(unsigned int i=0;i<Item.size();i++)
-    {
-        Item[i].Display();
+
+void SortByWeight(vector<Term> term) {
+    sort(term.begin(), term.end(), CompareWeight);
+}
+
+bool Term::operator<(Term rightSide) {
+    if (rightSide.str.size() > this->str.size()) {
+        return true;
+    } else if (this->str.size() < rightSide.str.size()) {
+        return false;
+    } else {
+        for (unsigned int i = 0; i < rightSide.str.size(); i++) {
+            
+            if (tolower(this->str[i]) < tolower(rightSide.str[i])) {
+                return true;
+            }
+            else if (tolower(this->str[i]) > tolower(rightSide.str[i])) {
+                return false;
+            }
+            
+        }
+        return true;
     }
+    
 }
+
+
+
+bool Compare(Term leftSide, Term rightSide) {
+    return (leftSide < rightSide);
+}
+void Sort(vector<Term>& term) {
+    sort(term.begin(), term.end(), Compare);
+}
+
+
