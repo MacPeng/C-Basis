@@ -15,3 +15,6 @@ int main() {
 
 //Out
 i = 21
+
+
+continue means jump out of the current loop
